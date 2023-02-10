@@ -188,3 +188,134 @@ par(mfrow = c(2, 1), mar = c(3, 3, 1, 1), mgp = c(1.8, .5, 0))
 ```
 
 ![](Lab-4_files/figure-gfm/plot%20SI%20graphs-1.png)<!-- -->
+
+What are S/N and I/N at equilibrium?
+
+``` r
+s[101]
+```
+
+    ## [1] 0.6000033
+
+``` r
+i[101]
+```
+
+    ## [1] 0.3999967
+
+# PART 3: SEIR MODEL
+
+Write a function for SEIR model.
+
+``` r
+SEIR = function(t, state, parameters){
+  with(as.list(c(state, parameters)),{
+    
+    dS = -beta*S*I/N;
+    dE = beta*S*I/N - alpha*E;
+    dI = alpha*E - gamma*I;
+    
+    dcumInci = beta*S*I/N;
+    
+    list(c(dS, dE, dI, dcumInci))
+    
+  })
+}
+```
+
+Set up initial conditions and parameters for SEIR model:
+
+``` r
+beta = 0.6 
+alpha = 1/1.5
+gamma = 1/3
+N = 1e5
+E0 = 10 
+I0 = 0 
+S0 = N-E0-I0
+times = seq(0, 100, by = 1)
+
+state.SEIR = c(S = S0, E = E0, I = I0, Incidence = 0)
+parameters.SEIR = c(beta = 0.6, gamma = 1/3, alpha = 1/1.5)
+```
+
+Call the SEIR function:
+
+``` r
+sim.SEIR = ode(y = state.SEIR, times = times, func = SEIR, parms = parameters.SEIR)
+
+s.SEIR = sim.SEIR[, 'S']/N
+i.SEIR = sim.SEIR[, 'I']/N
+```
+
+To compare with SEIR model, write an SIR function with cumulative
+incidence:
+
+``` r
+SIR = function(t, state, parameters){
+  with(as.list(c(state, parameters)),{
+   
+    dS = -beta*S*I/N;
+    dI = beta*S*I/N - gamma*I;
+    
+    dcumInci = beta*S*I/N;
+    
+    list(c(dS, dI, dcumInci))
+  })
+}
+```
+
+Set up initial conditions and parameters for SIR model:
+
+``` r
+beta = 0.4 
+gamma = 1/4.5
+N = 1e5
+I0 = 10 
+S0 = N-I0
+cumI = 0
+times = seq(0, 100, by = 1)
+
+state.SIR = c(S = S0, I = I0, Incidence = cumI)
+parameters.SIR = c(beta = 0.4, gamma = 1/4.5)
+```
+
+Call the SIR function:
+
+``` r
+sim.SIR = ode(y = state.SIR, times = times, func = SIR, parms = parameters.SIR)
+
+s.SIR = sim.SIR[, 'S']/N
+i.SIR = sim.SIR[, 'I']/N
+```
+
+To calculate new incidence using cumulative incidence:
+
+``` r
+# RECALL: X[-1] MEANS DELETE THE FIRST ELEMENT IN X
+newI_SEIR = sim.SEIR[-1,'Incidence']/N - sim.SEIR[-length(times), 'Incidence']/N; # new cases
+newI_SIR = sim.SIR[-1,'Incidence']/N - sim.SIR[-length(times),'Incidence']/N; # new cases
+```
+
+Compare S, I, and Incidence, over time computed by the 2 models:
+
+``` r
+if(T){
+  par(mfrow = c(3, 1), cex = .8, mgp = c(1.8,.5,0), mar = c(3,3,1,1))
+  plot(times, s.SEIR, ylim = c(0, 1), ylab = '% S', xlab = 'Time (day)', main = '%S over time', type = 'l', col = 'forestgreen')
+  lines(times, s.SIR, col = 'darkolivegreen4', lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('forestgreen', 'darkolivegreen4'), lwd = 2) 
+  
+  ymax = max(i.SEIR,i.SIR)*1.05
+  plot(times, i.SEIR, ylim = c(0, ymax), col = 'red', ylab = '% I', xlab = 'Time (day)', main = '%I over time', type = 'l')
+  lines(times, i.SIR, col = 'brown', lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('red', 'brown'), lwd = 2)
+
+  ymax = max(newI_SEIR, newI_SIR)*1.05
+  plot(newI_SEIR, ylim = c(0, ymax), col = 'dodgerblue2', ylab = 'Incidence', xlab = 'Time (day)', main = 'Incidence over time', type = 'l')
+  lines(newI_SIR, col = 'deepskyblue2',lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('dodgerblue2', 'deepskyblue2'), lwd = 2)
+}
+```
+
+![](Lab-4_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->

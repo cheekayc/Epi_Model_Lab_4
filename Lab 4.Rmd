@@ -154,75 +154,114 @@ i[101]
 ```
 
 
-# PART 3: SEIR MODEL (VS SIR)
+# PART 3: SEIR MODEL
 
-## AGAIN, THE SIR MODEL FOR YOUR REFERENCE
-## NOTE THE EXTRA EQN FOR CUMMULATIVE INCIDENCE
-SIR=function(t,state,parameters){
-  with(as.list(c(state,parameters)),{
-    # rate of change
-    dS=-beta*S*I/N;
-    dI=beta*S*I/N-gamma*I;
+Write a function for SEIR model.
+```{r}
+SEIR = function(t, state, parameters){
+  with(as.list(c(state, parameters)),{
     
-    # cumulative incidence
-    dcumInci=beta*S*I/N;
+    dS = -beta*S*I/N;
+    dE = beta*S*I/N - alpha*E;
+    dI = alpha*E - gamma*I;
     
-    # return the rate of change
-    list(c(dS,dI,dcumInci))
-  }) # end with(as.list...)
+    dcumInci = beta*S*I/N;
+    
+    list(c(dS, dE, dI, dcumInci))
+    
+  })
 }
+```
 
+Set up initial conditions and parameters for SEIR model:
+```{r}
+beta = 0.6 
+alpha = 1/1.5
+gamma = 1/3
+N = 1e5
+E0 = 10 
+I0 = 0 
+S0 = N-E0-I0
+times = seq(0, 100, by = 1)
 
-SEIR=function(t,state,parameters){
-  with(as.list(c(state,parameters)),{
-    # rate of change
+state.SEIR = c(S = S0, E = E0, I = I0, Incidence = 0)
+parameters.SEIR = c(beta = 0.6, gamma = 1/3, alpha = 1/1.5)
+```
+
+Call the SEIR function:
+```{r}
+sim.SEIR = ode(y = state.SEIR, times = times, func = SEIR, parms = parameters.SEIR)
+
+s.SEIR = sim.SEIR[, 'S']/N
+i.SEIR = sim.SEIR[, 'I']/N
+```
+
+To compare with SEIR model, write an SIR function with cumulative incidence:
+```{r}
+SIR = function(t, state, parameters){
+  with(as.list(c(state, parameters)),{
+   
+    dS = -beta*S*I/N;
+    dI = beta*S*I/N - gamma*I;
     
-    # FILL IN YOUR SEIR MODEL HERE
-
-    # return the rate of change
-    # RETURN ALL STATE VARIABLES: 
+    dcumInci = beta*S*I/N;
     
-  }) # end with(as.list...)
+    list(c(dS, dI, dcumInci))
+  })
 }
+```
 
-## NOW TEST YOUR MODELS USING THE FOLLOWING PARMS/INITIAL CONDS:
-times=0:100
-N=1e5; E0=10; I0=0; S0=N-E0-I0;
-stateSEIR=c(S=S0,E=E0,I=I0, cumInci=0);
-paramSEIR=c(beta=.6,alpha=1/1.5,gamma=1/3); 
-simSEIR=ode(y=stateSEIR,times=times,func=SEIR,parms=paramSEIR) # run SEIR
+Set up initial conditions and parameters for SIR model:
+```{r}
+beta = 0.4 
+gamma = 1/4.5
+N = 1e5
+I0 = 10 
+S0 = N-I0
+cumI = 0
+times = seq(0, 100, by = 1)
 
-stateSIR=c(S=S0,I=E0, cumInci=E0);
-paramSIR=c(beta=.4,gamma=1/4.5);  # to keep the same serial interval and R0
-simSIR=ode(y=stateSIR,times=times,func=SIR,parms=paramSIR) # run SEIR
+state.SIR = c(S = S0, I = I0, Incidence = cumI)
+parameters.SIR = c(beta = 0.4, gamma = 1/4.5)
+```
 
-s_SEIR=simSEIR[,'S']/N; i_SEIR=simSEIR[,'I']/N; 
-s_SIR=simSIR[,'S']/N; i_SIR=simSIR[,'I']/N;
+Call the SIR function:
+```{r}
+sim.SIR = ode(y = state.SIR, times = times, func = SIR, parms = parameters.SIR)
 
-# TO CALCULATE THE INCIDENCE USING THE CUMMULATIVE INCIDENCE
+s.SIR = sim.SIR[, 'S']/N
+i.SIR = sim.SIR[, 'I']/N
+```
+
+To calculate new incidence using cumulative incidence:
+```{r}
 # RECALL: X[-1] MEANS DELETE THE FIRST ELEMENT IN X
-newi_SEIR=simSEIR[-1,'cumInci']/N-simSEIR[-length(times),'cumInci']/N; # new cases
-newi_SIR=simSIR[-1,'cumInci']/N-simSIR[-length(times),'cumInci']/N; # new cases
+newI_SEIR = sim.SEIR[-1,'Incidence']/N - sim.SEIR[-length(times), 'Incidence']/N; # new cases
+newI_SIR = sim.SIR[-1,'Incidence']/N - sim.SIR[-length(times),'Incidence']/N; # new cases
+```
 
+Compare S, I, and Incidence, over time computed by the 2 models:
+```{r}
+if(T){
+  par(mfrow = c(3, 1), cex = .8, mgp = c(1.8,.5,0), mar = c(3,3,1,1))
+  plot(times, s.SEIR, ylim = c(0, 1), ylab = '% S', xlab = 'Time (day)', main = '%S over time', type = 'l', col = 'forestgreen')
+  lines(times, s.SIR, col = 'darkolivegreen4', lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('forestgreen', 'darkolivegreen4'), lwd = 2) 
+  
+  ymax = max(i.SEIR,i.SIR)*1.05
+  plot(times, i.SEIR, ylim = c(0, ymax), col = 'red', ylab = '% I', xlab = 'Time (day)', main = '%I over time', type = 'l')
+  lines(times, i.SIR, col = 'brown', lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('red', 'brown'), lwd = 2)
 
-# EXAMPLE CODE FOR PLOTTING
-if(F){
-  # TO UNDERSTAND THE LINE 'PAR', READ ABOUT WHAT EACH ARGUEMENT IS DOING
-  # FROM, E.G. http://www.statmethods.net/advgraphs/parameters.html
-  # GOOGLE IF YOU'D LIKE TO LEARN MORE
-  par(mfrow=c(3,1),cex=.8,mgp=c(1.8,.5,0),mar=c(3,3,1,1))
-  plot(times,s_SEIR,ylim=c(0,1),
-       ylab='% S',xlab='Time', type='l',col='blue')
-  lines(times,s_SIR,col='blue',lty=2)
-  # REMEMBER TO ADD A LEGEND INDICATING WHAT YOU'RE PLOTTING
-  ymax=max(i_SEIR,i_SIR)*1.05
-  plot(times,i_SEIR,ylim=c(0,ymax),col='red',ylab='% I',xlab='Time', type='l')
-  lines(times,i_SIR,col='red',lty=2)
-  # REMEMBER TO ADD A LEGEND INDICATING WHAT YOU'RE PLOTTING
-  ymax=max(newi_SEIR,newi_SIR)*1.05
-  plot(newi_SEIR,ylim=c(0,ymax),col='green',ylab='Incidence',xlab='Time', type='l')
-  lines(newi_SIR,col='green',lty=2)
-  # REMEMBER TO ADD A LEGEND INDICATING WHAT YOU'RE PLOTTING
+  ymax = max(newI_SEIR, newI_SIR)*1.05
+  plot(newI_SEIR, ylim = c(0, ymax), col = 'dodgerblue2', ylab = 'Incidence', xlab = 'Time (day)', main = 'Incidence over time', type = 'l')
+  lines(newI_SIR, col = 'deepskyblue2',lty = 2)
+  legend(x = "topright", legend = c("SEIR", "SIR"), lty = c(1, 2), col = c('dodgerblue2', 'deepskyblue2'), lwd = 2)
 }
+```
+
+
+
+
 
 
